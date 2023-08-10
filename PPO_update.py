@@ -279,7 +279,7 @@ class Environment(gym.Env):
         indices_fut2 = np.minimum(indices_fut2, end)
         P_f_fut = av_vec(self.pv_forecast, indices_fut1, indices_fut2)
     
-        index_rest = ((self.t - self.start_time) * 60 / self.L_c + self.N_fut * 60 / self.L_c + 1).astype(int)
+        index_rest = int((self.t - self.start_time) * 60 / self.L_c + self.N_fut * 60 / self.L_c + 1)
         P_f_rest = av(self.pv_forecast, index_rest, len(self.pv_forecast) - 1)
         return np.concatenate((P_f_past, P_f_fut, np.array([P_f_rest])))
 
