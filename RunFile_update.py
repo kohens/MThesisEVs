@@ -154,7 +154,7 @@ for N_ev in N_evList:
             # Create environment and train the network
             file_name = 'N_ev_'+str(N_ev)+'_L_c_'+str(L_c)+'_kappa_'+str(kappa)+'.npz'
             np.savez(file_name,array1=T_arr, array2=T_dep, array3=E_reqs, array4=forecast_list, array5=price_forecast_list, array6=moments, array7=pv_generation(moments), array8=consumption_price(moments))
-            env = PPO_update.Environment(start_time, int(end_time+1), N_ev, forecast, price_forecast, N_past, N_fut, L_c, E_reqs, P_max, T_arr, T_dep, Load_Stations, StationVector, IDs, kappa ,injection_price,consumption_price, pv_generation )
+            env = PPO_update.Environment(start_time, int(end_time+1), N_ev, forecast_list, price_forecast_list, N_past, N_fut, L_c, E_reqs, P_max, T_arr, T_dep, Load_Stations, StationVector, IDs, kappa ,injection_price,consumption_price, pv_generation )
             agent = PPO_update.PPOAgent(state_dim, action_dim, env, epochs, batch_size, clip_epsilon, value_coeff, entropy_coeff, clip_epsilon, learning_rate , gamma, lamda)
             PL, VL, R, A, S = agent.train()
             file_name = 'Results'+ file_name
