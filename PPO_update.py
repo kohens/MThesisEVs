@@ -190,15 +190,6 @@ class Environment(gym.Env):
         # Take a step in the environment based on the given action
         # Update the state, compute the reward, and check if the episode is done
         # Return the next observation, reward, done flag, and additional information
-        
-        # 1: Calculation of new state
-        # Updates that do not depend on the action
-        self.t += self.L_c/60
-        P_pv_past = self.get_past_PV()
-        P_pv_current = self.get_and_update_PV()
-        P_pv_state_t = np.append(P_pv_past,P_pv_current)
-        P_f_pv_state_t = self.get_forecast_tuple()
-        L_cons = self.get_price_tuple()
 
         # Update of the required energy of the EV-fleet
         [P_charge, P_min, P_max] = self.divide_aggregated_power(action)
@@ -209,16 +200,25 @@ class Environment(gym.Env):
         self.E_req = np.maximum(self.E_req, np.zeros(self.N_ev))
         P_charge = real_time_controller(P_charge, M_start, M_end, self.L_c, self.N_ev, self.P_lim, self.t, self.kappa, self.pv_generation)
         [self.E_req, self.P_lim, self.IDs_fleet, self.EV_levels, self.T_arr_fleet, self.T_dep_fleet] = self.update_fleet()
-        Z_t = get_fleet_state(self.E_req, self.P_lim)
-        state = np.concatenate((Z_t, (self.t % 24)*np.ones(1), P_pv_state_t, P_f_pv_state_t, L_cons))
-        # 2: Calculation of the reward
+        # Calculation of the reward
         reward = self.calculate_reward(P_charge)
         
-        # 3: Check if episode is done: if time = end_time
+        # Check if episode is done: if time = end_time
         done = False
         if self.t > self.end_time-self.L_c/60:
             done = True
             self.done_procedure()
+        
+        # Calculation of new state
+        # Updates that do not depend on the action
+        self.t += self.L_c/60
+        P_pv_past = self.get_past_PV()
+        P_pv_current = self.get_and_update_PV()
+        P_pv_state_t = np.append(P_pv_past,P_pv_current)
+        P_f_pv_state_t = self.get_forecast_tuple()
+        L_cons = self.get_price_tuple()
+        Z_t = get_fleet_state(self.E_req, self.P_lim)
+        state = np.concatenate((Z_t, (self.t % 24)*np.ones(1), P_pv_state_t, P_f_pv_state_t, L_cons))
         
         return state, reward, done
     
@@ -279,7 +279,7 @@ class Environment(gym.Env):
         indices_fut2 = np.minimum(indices_fut2, end)
         P_f_fut = av_vec(self.pv_forecast, indices_fut1, indices_fut2)
     
-        index_rest = int((self.t - self.start_time) * 60 / self.L_c + self.N_fut * 60 / self.L_c + 1)
+        index_rest = int((self.t - self.start_time)*60/self.L_c + self.N_fut*60/self.L_c + 1)
         P_f_rest = av(self.pv_forecast, index_rest, len(self.pv_forecast) - 1)
         return np.concatenate((P_f_past, P_f_fut, np.array([P_f_rest])))
 
@@ -416,8 +416,7 @@ class PPOAgent:
             done = False
             while not done:
                 states.append(state)
-                P_agg = state[1]
-                action = self.select_action(state, P_agg)
+                action = self.select_action(state)
                 next_state, reward, done = self.env.step(action)
                 actions.append(action)
                 rewards.append(reward)  # Append the actual reward value
@@ -434,12 +433,13 @@ class PPOAgent:
         return  torch.tensor(states, dtype=torch.float32),torch.tensor(actions, dtype=torch.float32),torch.tensor(rewards, dtype=torch.float32), torch.tensor(next_states, dtype=torch.float32),torch.tensor(dones, dtype=torch.float32)
 
     
-    def select_action(self, state, action_max):
+    def select_action(self, state):
+        P_lim_agg = state[1]
         state = torch.from_numpy(state).float().unsqueeze(0)
         with torch.no_grad():
             action_tensor = self.network(state)[0]
         normalized_action = action_tensor.item()
-        action = self.network.denormalize_action(normalized_action, action_max)
+        action = self.network.denormalize_action(normalized_action, P_lim_agg)
         return action
 
     def calculate_advantages_and_targets(self, rewards, next_states, dones):
@@ -464,8 +464,6 @@ class PPOAgent:
             gae[i] = delta[i] + discount_factor_gae[i] * gae[i + 1]
         advantages = gae.float()
         
-        print(advantages)
-        print(target_values)
         return advantages, target_values
 
     def update_policy(self):
@@ -514,6 +512,7 @@ class PPOAgent:
         states_list = []
     
         for epoch in range(self.epochs):
+            print(epoch)
             # Assuming that self.update_policy() returns torch tensors
             policy_loss, value_loss, rewards, actions, states = self.update_policy()
             # Make sure to detach the tensors to prevent backpropagation
@@ -723,8 +722,8 @@ def get_forecast_measurement(file_path):
     # Read data from the Excel file
     df = pd.read_excel(file_path)
     data = df.values
-    forecast = (data[:, 2])[3:]/20
-    measurement = (data[:, 4])[3:]/20
+    forecast = ((data[:, 2])[3:]/20)
+    measurement = ((data[:, 4])[3:]/20)
     return np.append(forecast, 0.0), np.append(measurement, 0.0)
 
 def get_price_forecast(file_path):
