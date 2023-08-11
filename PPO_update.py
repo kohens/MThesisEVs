@@ -87,7 +87,7 @@ def heuristic_dispatch(P, P_min, P_max, delta_T_dep, E_req, P_lim, N_ev):
     # Further heuristic dispatch of remaining power
     remaining_indices = sorted_indices[P_max[sorted_indices] <= P_min[sorted_indices]]
     remaining_power = P
-    while remaining_power > 0 and np.sum(P_b) < np.sum(E_req):
+    while remaining_power > 0 and np.sum(P_b) < np.sum(E_req) and remaining_indices != []:
         remaining_indices = sorted_indices[P_max[sorted_indices] > P_b[sorted_indices]]  # Filter only the remaining indices
         extra_power = np.minimum(P_max[remaining_indices] - P_b[remaining_indices], remaining_power)
         P_b[remaining_indices] += extra_power
