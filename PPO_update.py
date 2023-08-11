@@ -205,13 +205,13 @@ class Environment(gym.Env):
         
         # Check if episode is done: if time = end_time
         done = False
+        self.t += self.L_c/60
         if self.t > self.end_time-self.L_c/60:
             done = True
             self.done_procedure()
         
         # Calculation of new state
         # Updates that do not depend on the action
-        self.t += self.L_c/60
         P_pv_past = self.get_past_PV()
         P_pv_current = self.get_and_update_PV()
         P_pv_state_t = np.append(P_pv_past,P_pv_current)
@@ -330,6 +330,8 @@ class Environment(gym.Env):
     # Calculate the cost of a charging plan
     def calculate_reward(self, P_charge):
         P_diff = np.sum(P_charge, axis=0) - self.pv_generation(self.t + np.arange(self.L_c) / 60)
+        #extra = np.where(self.t + np.arange(self.L_c) / 60 > self.end_time, np.zeros(len(P_diff)), self.pv_generation(self.t + np.arange(self.L_c) / 60))
+        #P_diff -= extra
         consumption_prices = self.consumption_price(self.t + np.arange(self.L_c) / 60)
         injection_prices = self.injection_price(self.t + np.arange(self.L_c) / 60)
     
